@@ -865,6 +865,7 @@ static int gsm48_rx_gmm_det_req(struct sgsn_mm_ctx *ctx, struct msgb *msg)
 		msgb_tlli(msg), get_value_string(gprs_det_t_mo_strs, detach_type),
 		power_off ? "Power-off" : "");
 
+	/* TODO: only if not power_off */
 	/* force_stby = 0 */
 	rc = gsm48_tx_gmm_det_ack(ctx, 0);
 
@@ -1100,12 +1101,14 @@ static int gsm0408_rcv_gmm(struct sgsn_mm_ctx *mmctx, struct msgb *msg,
 			return gprs_llgmm_assign(llme, llme->tlli, 0xffffffff,
 						 GPRS_ALGO_GEA0, NULL);
 		}
+		// TODO: ACK?
 
 		/* Don't force it into re-attachment */
 		if (gh->msg_type == GSM48_MT_GMM_DETACH_REQ) {
 			rc = gsm48_tx_gmm_detach_req_oldmsg(
 				msg, GPRS_DET_T_MT_REATT_NOTREQ,
 				GMM_CAUSE_IMPL_DETACHED);
+			// TODO: release/unassign LLME???
 
 			/* TLLI unassignment */
 			gprs_llgmm_assign(llme, llme->tlli, 0xffffffff,
