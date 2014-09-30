@@ -721,6 +721,37 @@ static void send_bssgp_llc_discarded(struct gprs_ns_inst *nsi,
 	send_ns_unitdata(nsi, "LLC_DISCARDED", src_addr, 0, msg, sizeof(msg));
 }
 
+static void send_bssgp_paging(struct gprs_ns_inst *nsi,
+			      struct sockaddr_in *src_addr,
+			      const uint8_t *imsi, size_t imsi_size,
+			      struct gprs_ra_id *raid, uint32_t ptmsi)
+{
+	/* Base Station Subsystem GPRS Protocol, BSSGP SUSPEND */
+	unsigned char msg[100] = {
+		0x06,
+	};
+
+	size_t bssgp_msg_size = 1;
+
+	if (imsi) {
+		OSMO_ASSERT(imsi_size <= 127);
+		msg[bssgp_msg_size] = BSSGP_IE_IMSI;
+		msg[bssgp_msg_size + 1] = 0x80 | imsi_size;
+		memcpy(msg + bssgp_msg_size + 2, imsi, imsi_size);
+		bssgp_msg_size += 2 + imsi_size;
+	}
+
+	// TODO RA header
+	gsm48_construct_ra(msg + bssgp_msg_size, raid);
+	bssgp_msg_size += 8;
+
+	// TODO QoS
+
+	// TODO ptmsi
+
+	send_ns_unitdata(nsi, "PAGING_PS", src_addr, 0, msg, sizeof(msg));
+}
+
 static void send_bssgp_flow_control_bvc(struct gprs_ns_inst *nsi,
 					struct sockaddr_in *src_addr,
 					uint16_t bvci, uint8_t tag)
