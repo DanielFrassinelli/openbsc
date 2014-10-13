@@ -35,6 +35,7 @@
 #include <openbsc/sgsn.h>
 #include <openbsc/gsm_04_08_gprs.h>
 #include <openbsc/gprs_gmm.h>
+#include "openbsc/gprs_llc.h"
 
 extern struct sgsn_instance *sgsn;
 
@@ -242,11 +243,35 @@ struct sgsn_pdp_ctx *sgsn_pdp_ctx_alloc(struct sgsn_mm_ctx *mm,
 }
 
 #include <pdp.h>
-/* you probably want to call sgsn_delete_pdp_ctx() instead */
+/* This function will not trigger any GSM DEACT PDP ACK messages, so you
+ * probably want to call sgsn_delete_pdp_ctx() instead if the connection
+ * isn't detached already */
+void sgsn_pdp_ctx_release(struct sgsn_pdp_ctx *pdp)
+{
+	OSMO_ASSERT(pdp->mm != NULL);
+
+	/* There might still be pending callbacks in libgtp. So the parts of
+	 * this object relevant to GTP need to remain intact in this case. */
+
+	LOGPDPCTXP(LOGL_INFO, pdp, "Forcing release of PDP context\n");
+
+	/* Force the deactivation of the SNDCP layer */
+	sndcp_sm_deactivate_ind(&pdp->mm->llme->lle[pdp->sapi], pdp->nsapi);
+
+	/* Detach from MM context */
+	llist_del(&pdp->list);
+	pdp->mm = NULL;
+
+	sgsn_delete_pdp_ctx(pdp);
+}
+
+/* You probably want to call sgsn_delete_pdp_ctx() instead. If it is called
+ * from outside of sgsn_libgtp, make sure to call sgsn_pdp_ctx_release first */
 void sgsn_pdp_ctx_free(struct sgsn_pdp_ctx *pdp)
 {
 	rate_ctr_group_free(pdp->ctrg);
-	llist_del(&pdp->list);
+	if (pdp->mm)
+		llist_del(&pdp->list);
 	llist_del(&pdp->g_list);
 
 	/* _if_ we still have a library handle, at least set it to NULL
