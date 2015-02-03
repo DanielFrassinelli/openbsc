@@ -1776,6 +1776,98 @@ static void test_gmm_ptmsi_allocation(void)
 	sgsn->cfg.auth_policy = saved_auth_policy;
 }
 
+static void test_apn_matching(void)
+{
+	struct apn_ctx *actx, *actxs[9];
+
+	printf("Testing APN matching\n");
+
+	actxs[0] = apn_ctx_find_alloc("*.test", "");
+	actxs[1] = apn_ctx_find_alloc("*.def.test", "");
+	actxs[2] = apn_ctx_find_alloc("abc.def.test", "");
+	actxs[3] = NULL;
+
+	actxs[4] = apn_ctx_find_alloc("abc.def.test", "456");
+	actxs[5] = apn_ctx_find_alloc("abc.def.test", "456123");
+	actxs[6] = apn_ctx_find_alloc("*.def.test", "456");
+	actxs[7] = apn_ctx_find_alloc("*.def.test", "456123");
+
+	actxs[8] = apn_ctx_find_alloc("ghi.def.test", "456");
+
+	actx = apn_ctx_match("abc.def.test", "12345678");
+	OSMO_ASSERT(actx == actxs[2]);
+	actx = apn_ctx_match("aBc.dEf.test", "12345678");
+	OSMO_ASSERT(actx == actxs[2]);
+	actx = apn_ctx_match("xyz.def.test", "12345678");
+	OSMO_ASSERT(actx == actxs[1]);
+	actx = apn_ctx_match("xyz.dEf.test", "12345678");
+	OSMO_ASSERT(actx == actxs[1]);
+	actx = apn_ctx_match("xyz.uvw.test", "12345678");
+	OSMO_ASSERT(actx == actxs[0]);
+	actx = apn_ctx_match("xyz.uvw.foo", "12345678");
+	OSMO_ASSERT(actx == NULL);
+
+	actxs[3] = apn_ctx_find_alloc("*", "");
+	actx = apn_ctx_match("xyz.uvw.foo", "12345678");
+	OSMO_ASSERT(actx == actxs[3]);
+
+	actx = apn_ctx_match("abc.def.test", "45699900");
+	OSMO_ASSERT(actx == actxs[4]);
+
+	actx = apn_ctx_match("xyz.def.test", "45699900");
+	OSMO_ASSERT(actx == actxs[6]);
+
+	actx = apn_ctx_match("abc.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[5]);
+
+	actx = apn_ctx_match("xyz.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[7]);
+
+	actx = apn_ctx_match("ghi.def.test", "45699900");
+	OSMO_ASSERT(actx == actxs[8]);
+
+	actx = apn_ctx_match("ghi.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[7]);
+
+	/* Free APN contexts and check how the matching changes */
+
+	apn_ctx_free(actxs[7]);
+	actx = apn_ctx_match("ghi.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[8]);
+
+	apn_ctx_free(actxs[8]);
+	actx = apn_ctx_match("ghi.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[6]);
+
+	apn_ctx_free(actxs[6]);
+	actx = apn_ctx_match("ghi.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[1]);
+
+	apn_ctx_free(actxs[5]);
+	actx = apn_ctx_match("abc.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[4]);
+
+	apn_ctx_free(actxs[4]);
+	actx = apn_ctx_match("abc.def.test", "45612300");
+	OSMO_ASSERT(actx == actxs[2]);
+
+	apn_ctx_free(actxs[2]);
+	actx = apn_ctx_match("abc.def.test", "12345678");
+	OSMO_ASSERT(actx == actxs[1]);
+
+	apn_ctx_free(actxs[1]);
+	actx = apn_ctx_match("abc.def.test", "12345678");
+	OSMO_ASSERT(actx == actxs[0]);
+
+	apn_ctx_free(actxs[0]);
+	actx = apn_ctx_match("abc.def.test", "12345678");
+	OSMO_ASSERT(actx == actxs[3]);
+
+	apn_ctx_free(actxs[3]);
+	actx = apn_ctx_match("abc.def.test", "12345678");
+	OSMO_ASSERT(actx == NULL);
+}
+
 static struct log_info_cat gprs_categories[] = {
 	[DMM] = {
 		.name = "DMM",
@@ -1863,6 +1955,7 @@ int main(int argc, char **argv)
 	test_gmm_reject();
 	test_gmm_cancel();
 	test_gmm_ptmsi_allocation();
+	test_apn_matching();
 	printf("Done\n");
 
 	talloc_report_full(osmo_sgsn_ctx, stderr);
