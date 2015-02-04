@@ -1,8 +1,9 @@
-openbsc (0.13.2+j4) UNRELEASED; urgency=low
+openbsc (0.13.2+j5) UNRELEASED; urgency=low
 
   [ Jacob Erlbeck ]
   * Reworked SGSN
   * Mainly based on master now
+  * Add APN handling
 
   [ Holger Hans Peter Freyther ]
   * Merge master for MGCP changes
